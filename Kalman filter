@@ -1,0 +1,48 @@
+% Load the dataset containing voltage, current, and time values
+load Charging_Data_R1_180Cy_CoinCel_1C.mat
+V=cell2mat(Char_vol(2,:));
+I=cell2mat(Char_current(2,:));
+Cap=cell2mat(Char_cap(2,:));
+T=cell2mat(Char_time(2,:));
+
+% Define the system dynamics
+dt = 0.03 ; % Time step
+A = 1; % State transition matrix
+B = -1/100; % Input matrix
+C = 1; % Output matrix
+Q = 0.01; % Process noise covariance
+R = 0.1; % Measurement noise covariance
+
+% Define the initial state and covariance matrix
+x0 = 0; % Initial state (SOC)
+P0 = 0.1; % Initial covariance matrix
+
+% Define the state transition and measurement functions
+f = @(x,u) A*x + B*u;
+h = @(x) C*x;
+
+% Define the process and measurement noise covariance matrices
+Qd = Q*dt*eye(size(A));
+Rd = R*dt*eye(size(C));
+
+% Initialize the Kalman filter
+x_kf = x0; % Initial state estimate
+P_kf = P0; % Initial covariance matrix estimate
+KF_SOC = zeros(size(V)); % Kalman filter SOC estimate
+
+% Iterate through the measurements and update the state estimate using the Kalman filter equations
+for i=1:length(V)
+    % Predict the next state and covariance matrix estimate
+    x_kf = f(x_kf,I(i));
+    P_kf = A*P_kf*A' + Qd;
+    
+    % Calculate the Kalman gain
+    K = P_kf*C'/(C*P_kf*C' + Rd);
+    
+    % Update the state estimate and covariance matrix estimate using the current measurement
+    x_kf = x_kf + K*(V(i) - h(x_kf));
+    P_kf = (eye(size(K*C)) - K*C)*P_kf;
+    
+    % Save the SOC estimate
+    KF_SOC(i) = x_kf;
+end
