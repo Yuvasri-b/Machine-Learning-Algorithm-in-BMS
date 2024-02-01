@@ -1,0 +1,56 @@
+%Load the dataset containing voltage, current, and time values
+load Charging_Data_R1_180Cy_CoinCel_1C.mat
+V=cell2mat(Char_vol(2,:));
+I=cell2mat(Char_current(2,:));
+Cap=cell2mat(Char_cap(2,:));
+T=cell2mat(Char_time(2,:));
+
+% Define the system dynamics
+dt = 0.03 ; % Time step
+A = 1; % State transition matrix
+B = -1/100; % Input matrix
+C = 1; % Output matrix
+Q = 0.01; % Process noise covariance
+R = 0.1; % Measurement noise covariance
+
+% Define the initial state and covariance matrix
+x0 = 0; % Initial state (SOC)
+P0 = 0.1; % Initial covariance matrix
+
+% Define the state transition and measurement functions
+f = @(x,u) A*x + B*u;
+h = @(x) C*x;
+
+% Define the process and measurement noise covariance matrices
+Qd = Q*dt*eye(size(A));
+Rd = R*dt*eye(size(C));
+
+% Initialize the extended Kalman filter
+kf = extendedKalmanFilter(f,h,x0,'StateCovariance',P0,...
+    'ProcessNoise',Qd,'MeasurementNoise',Rd);
+
+% Apply the extended Kalman filter to estimate the SOC
+for i = 1:length(T)
+    % Get the current time, voltage, and current values
+    t = T(i);
+    v = V(i);
+    u = I(i);
+    
+    % Predict step
+    predict(kf,u);
+    
+    % Update step
+    correct(kf,v);
+    
+    % Store the results
+    soc(i) =  kf.State(1); % Estimated SOC in the range of 0-100
+   
+end
+
+% Plot the results
+plot(T,soc)
+hold on;
+xlabel('Time (s)')
+ylabel('State of Charge (SOC)')
+hold off;
+
