@@ -1,0 +1,47 @@
+% Load the dataset containing voltage, current, and time values
+load Charging_Data_R1_180Cy_CoinCel_1C.mat
+V=cell2mat(Char_vol(2,:));
+I=cell2mat(Char_current(2,:));
+Cap=cell2mat(Char_cap(2,:));
+T=cell2mat(Char_time(2,:));
+
+% Battery parameters
+Qrated = 45;      % Rated capacity in mAh
+Vmin= min(V);        % Minimum voltage in volts
+Vmax_CC = max(V);        % Maximum voltage in volts
+%Calculate time step
+idx= find(V(1,:)==max(V));
+Vmin_CC= min(V(1:idx-1));        % Minimum voltage in volts
+Vmax_CV = max(V(1:idx-1));        % Maximum voltage in volts
+Vmin_CV= min(V(idx:end));        % Minimum voltage in volts
+Vmax_CV = max(V(idx:end));        % Maximum voltage in volts
+I_CC=I(1:idx-1);
+I_CV=I(idx:end);
+T_CC=T(1:idx-1);
+T_CV=T(idx:end);
+dt_CC=diff(T_CC);
+dt_CV=diff(T_CV);
+
+% Repeat last value of dt to match size of I
+dt_ad_CC = [dt_CC, dt_CC(end)];
+dt_ad_CV = [dt_CV,dt_CV(end)];
+
+for i=1:length(I_CV)
+
+    % Calculate capacity during CC stage
+    Q_CC(1,i) = cumsum(I_CC(1,i)*dt_ad_CC(1,i))/3600*Qrated;   % Capacity in mAh
+    SOC_CC = (Q_CC(1,i)/Qrated - (Vmax_CC - V(1:idx-1))./(Vmax_CC - Vmin))*100;   % SOC in percentage
+end
+for i= idx:length(I_CV)
+    % Calculate capacity during CV stage
+    Q_CV(1,i) = cumsum(I_CV(1,i)*dt_ad_CV(1,i))/3600*Qrated;   % Capacity in mAh
+    SOC_CV = (Q_CV(1,i)/Qrated - (Vmax_CV - V(idx:end))./(Vmax_CV - Vmin))*100;   % SOC in percentage
+end
+% Concatenate results
+SOC_1 = [0 SOC_CC SOC_CV];   % SOC in percentage
+
+% Plot results
+figure;
+plot(T, SOC_1);
+xlabel('Time (s)');
+ylabel('State of Charge (%)');
