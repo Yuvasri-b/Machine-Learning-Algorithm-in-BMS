@@ -1,0 +1,64 @@
+% Load the dataset containing voltage, current, and time values
+load Charging_Data_R1_180Cy_CoinCel_1C.mat
+V = cell2mat(Char_vol(2,:));
+I = cell2mat(Char_current(2,:));
+T = cell2mat(Char_time(2,:));
+Cap=cell2mat(Char_cap(2,:));
+
+% Define the system dynamics
+dt = 0.03 ; % Time step
+A = 1; % State transition matrix
+B = -1/100; % Input matrix
+C = 1; % Output matrix
+Q = 0.01; % Process noise covariance
+R = 0.1; % Measurement noise covariance
+
+% Define the initial state and covariance matrix
+x0 = 0; % Initial state (SOC)
+P0 = 0.1; % Initial covariance matrix
+
+% Define the state transition and measurement functions
+f = @(x,u) A*x + B*u;
+h = @(x) C*x;
+
+% Define the process and measurement noise covariance matrices
+Qd = Q*dt*eye(size(A));
+Rd = R*dt*eye(size(C));
+
+% Initialize the AKF
+x_akf = x0;
+P_akf = P0;
+
+% Create an array to store the SOC estimates
+SOC_est = zeros(size(V));
+
+% Run the AKF for each time step
+for i = 2:length(V)
+    
+    % Update the state transition and measurement functions based on the current voltage and time
+    A = 1 - dt/(Cap(i)*3600);
+    f = @(x,u) A*x + B*u;
+    h = @(x) C*x;
+    
+    % Predict the next state of the system
+    x_pred = f(x_akf,I(i));
+    P_pred = A*P_akf*A' + Qd;
+    
+    % Compute the Kalman gain
+    K = P_pred*C'/(C*P_pred*C' + Rd);
+    
+    % Update the state estimate based on the voltage measurement
+    y = V(i) - h(x_pred);
+    x_akf = x_pred + K*y;
+    P_akf = (eye(size(P_pred)) - K*C)*P_pred;
+    
+    % Store the SOC estimate
+    SOC_est(i) = x_akf;
+end
+
+% Plot SOC against voltage
+plot(V, SOC_est)
+xlabel('Voltage (V)')
+ylabel('SOC')
+title('SOC Estimate vs. Voltage')
+
